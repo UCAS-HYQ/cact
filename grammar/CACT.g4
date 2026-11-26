@@ -1,42 +1,42 @@
 grammar CACT;
 
-compUnit : (funcDef | decl)* EOF ;
+compUnit : (decl | funcDef)* EOF ;
 
 decl      : constDecl | varDecl ;
 constDecl : 'const' bType constDef (',' constDef)* ';' ;
-bType     : 'int' | 'float' | 'double' | 'bool' ;
-constDef  : ID ('[' INTEGER ']')* '=' initVal ;
+constDef  : ID ('[' INTEGER ']')* '=' constInitVal ;
+varDecl   : bType varDef (',' varDef)* ';' ;
+varDef    : ID ('[' INTEGER ']')* ('=' constInitVal)? ;
 
-varDecl : bType varDef (',' varDef)* ';' ;
-varDef  : ID ('[' INTEGER ']')* ('=' initVal)? ;
+bType : 'int' | 'float' | 'char' ;
 
-initVal : INTEGER
-        | FLOAT_LITERAL
-        | 'true'
-        | 'false'
-        | '{' (initVal (',' initVal)*)? '}'
-        ;
+constInitVal : INTEGER
+             | FLOAT_LITERAL
+             | CHAR_LITERAL
+             | '{' (constInitVal (',' constInitVal)*)? '}'
+             ;
 
 funcDef    : funcType ID '(' (funcFParam (',' funcFParam)*)? ')' block ;
-funcType   : 'void' | 'int' | 'float' | 'double' | 'bool' ;
-funcFParam : bType ID ('[' INTEGER? ']')* ;
+funcType   : 'void' | 'int' | 'float' | 'char' ;
+funcFParam : bType ID ('[' ']' ('[' INTEGER ']')*)? ;
 
 block     : '{' blockItem* '}' ;
 blockItem : decl | stmt ;
 
 stmt
     : lVal '=' exp ';'
-    | exp ';'
+    | exp? ';'
     | block
-    | 'if' '(' exp ')' stmt ('else' stmt)?
-    | 'while' '(' exp ')' stmt
+    | 'if' '(' cond ')' stmt ('else' stmt)?
+    | 'while' '(' cond ')' stmt
     | 'break' ';'
     | 'continue' ';'
     | 'return' exp? ';'
-    | ';'
     ;
 
-exp      : lOrExp ;
+exp  : addExp ;
+cond : lOrExp ;
+
 lOrExp   : lAndExp ('||' lAndExp)* ;
 lAndExp  : eqExp ('&&' eqExp)* ;
 eqExp    : relExp (('==' | '!=') relExp)* ;
@@ -45,20 +45,22 @@ addExp   : mulExp (('+' | '-') mulExp)* ;
 mulExp   : unaryExp (('*' | '/' | '%') unaryExp)* ;
 unaryExp : ('+' | '-' | '!') unaryExp | primaryExp ;
 
-primaryExp : '(' exp ')' | funcCall | lVal | INTEGER | FLOAT_LITERAL | 'true' | 'false' ;
+primaryExp : '(' exp ')' | funcCall | lVal | INTEGER | FLOAT_LITERAL | CHAR_LITERAL ;
 funcCall   : ID '(' (exp (',' exp)*)? ')' ;
 lVal       : ID ('[' exp ']')* ;
 
-INTEGER       : '0' [xX] [0-9a-fA-F]+
-              | '0' [0-7]*
-              | [1-9] [0-9]*
-              ;
+INTEGER : '0' [xX] [0-9a-fA-F]+
+        | '0' [0-7]*
+        | [1-9] [0-9]*
+        ;
 
 FLOAT_LITERAL : ([0-9]+ '.' [0-9]* | '.' [0-9]+) ([eE] [+-]? [0-9]+)? [fF]?
               | [0-9]+ [eE] [+-]? [0-9]+ [fF]?
               ;
 
-ID            : [a-zA-Z_] [a-zA-Z_0-9]* ;
+CHAR_LITERAL : '\'' ('\\' [nt\\'"0] | ~['\\\r\n]) '\'' ;
+
+ID : [a-zA-Z_] [a-zA-Z_0-9]* ;
 
 LINE_COMMENT  : '//' ~[\r\n]* -> skip ;
 BLOCK_COMMENT : '/*' .*? '*/' -> skip ;
