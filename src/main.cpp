@@ -1,47 +1,50 @@
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <exception>
 
-// #include "antlr4-runtime.h"
-#include "tree/ErrorNode.h"
-
-#include "HelloLexer.h"
-#include "HelloParser.h"
-#include "HelloVisitor.h"
+#include "antlr4-runtime.h"
+#include "CACTLexer.h"
+#include "CACTParser.h"
 
 using namespace antlr4;
 
-class Analysis : public HelloVisitor {
+class CountingErrorListener : public BaseErrorListener {
 public:
-    std::any visitR(HelloParser::RContext *context) {
-        visitChildren( context );
-        
-        std::cout << "enter rule [r]!" << std::endl;
-        std::cout << "the ID is: " << context->ID()->getText().c_str() << std::endl;
-        return nullptr;
-    }
+    int errors = 0;
 
-    std::any visitErrorNode(tree::ErrorNode * node) override {
-        std::cout << "visit error node!" << std::endl;
-        return nullptr;
+    void syntaxError(Recognizer *, Token *, size_t line, size_t charPositionInLine,
+                     const std::string &msg, std::exception_ptr) override {
+        ++errors;
+        std::cerr << "line " << line << ":" << charPositionInLine << " " << msg << std::endl;
     }
 };
 
-int main(int argc, const char* argv[]) {
-  std::ifstream stream;
-  stream.open("../test/test.hello");
+int main(int argc, const char *argv[]) {
+    if (argc < 2) {
+        std::cerr << "usage: " << argv[0] << " <source.cact>" << std::endl;
+        return 2;
+    }
 
-  if (!stream.is_open())
-  {
-    std::cerr << "Failed to open file" << std::endl;
-    return 9;
-  }
+    std::ifstream stream(argv[1]);
+    if (!stream.is_open()) {
+        std::cerr << "Failed to open file: " << argv[1] << std::endl;
+        return 2;
+    }
 
-  ANTLRInputStream   input(stream);
-  HelloLexer         lexer(&input);
-  CommonTokenStream  tokens(&lexer);
-  HelloParser        parser(&tokens);
+    ANTLRInputStream input(stream);
+    CACTLexer lexer(&input);
+    CommonTokenStream tokens(&lexer);
+    CACTParser parser(&tokens);
 
-  Analysis visitor;
-  visitor.visit( parser.r() );
+    lexer.removeErrorListeners();
+    parser.removeErrorListeners();
 
-  return 0;
+    CountingErrorListener listener;
+    lexer.addErrorListener(&listener);
+    parser.addErrorListener(&listener);
+
+    parser.compUnit();
+
+    return listener.errors == 0 ? 0 : 1;
 }
